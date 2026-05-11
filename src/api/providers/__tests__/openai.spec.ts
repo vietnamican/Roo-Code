@@ -372,6 +372,30 @@ describe("OpenAiHandler", () => {
 			expect(mockCreate).toHaveBeenCalled()
 			const callArgs = mockCreate.mock.calls[0][0]
 			expect(callArgs.reasoning_effort).toBe("high")
+			expect(callArgs.reasoning).toEqual({ effort: "high", summary: "auto" })
+		})
+
+		it("should include reasoning payload in non-streaming mode when reasoning effort is enabled", async () => {
+			const reasoningOptions: ApiHandlerOptions = {
+				...mockOptions,
+				openAiStreamingEnabled: false,
+				enableReasoningEffort: true,
+				openAiCustomModelInfo: {
+					contextWindow: 128_000,
+					supportsPromptCache: false,
+					supportsReasoningEffort: true,
+					reasoningEffort: "high",
+				},
+			}
+			const reasoningHandler = new OpenAiHandler(reasoningOptions)
+			const stream = reasoningHandler.createMessage(systemPrompt, messages)
+			for await (const _chunk of stream) {
+			}
+
+			expect(mockCreate).toHaveBeenCalled()
+			const callArgs = mockCreate.mock.calls[0][0]
+			expect(callArgs.reasoning_effort).toBe("high")
+			expect(callArgs.reasoning).toEqual({ effort: "high", summary: "auto" })
 		})
 
 		it("should not include reasoning_effort when reasoning effort is disabled", async () => {
@@ -549,6 +573,31 @@ describe("OpenAiHandler", () => {
 					model: mockOptions.openAiModelId,
 					messages: [{ role: "user", content: "Test prompt" }],
 				},
+				{},
+			)
+		})
+
+		it("should include reasoning payload when completePrompt reasoning is enabled", async () => {
+			const reasoningHandler = new OpenAiHandler({
+				...mockOptions,
+				enableReasoningEffort: true,
+				openAiCustomModelInfo: {
+					contextWindow: 128_000,
+					supportsPromptCache: false,
+					supportsReasoningEffort: true,
+					reasoningEffort: "high",
+				},
+			})
+
+			const result = await reasoningHandler.completePrompt("Test prompt")
+			expect(result).toBe("Test response")
+			expect(mockCreate).toHaveBeenCalledWith(
+				expect.objectContaining({
+					model: mockOptions.openAiModelId,
+					messages: [{ role: "user", content: "Test prompt" }],
+					reasoning_effort: "high",
+					reasoning: { effort: "high", summary: "auto" },
+				}),
 				{},
 			)
 		})
@@ -798,6 +847,7 @@ describe("OpenAiHandler", () => {
 					stream: true,
 					stream_options: { include_usage: true },
 					reasoning_effort: "medium",
+					reasoning: { effort: "medium", summary: "auto" },
 					temperature: undefined,
 					// O3 models do not support deprecated max_tokens but do support max_completion_tokens
 					max_completion_tokens: 32000,
@@ -957,6 +1007,7 @@ describe("OpenAiHandler", () => {
 					stream: true,
 					stream_options: { include_usage: true },
 					reasoning_effort: "medium",
+					reasoning: { effort: "medium", summary: "auto" },
 					temperature: undefined,
 				}),
 				{},
@@ -999,6 +1050,7 @@ describe("OpenAiHandler", () => {
 						{ role: "user", content: "Hello!" },
 					],
 					reasoning_effort: "medium",
+					reasoning: { effort: "medium", summary: "auto" },
 					temperature: undefined,
 					// O3 models do not support deprecated max_tokens but do support max_completion_tokens
 					max_completion_tokens: 65536, // Using default maxTokens from o3Options
